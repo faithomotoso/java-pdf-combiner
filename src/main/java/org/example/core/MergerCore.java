@@ -1,6 +1,7 @@
 package org.example.core;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.example.config.MergerConfig;
 
 import java.io.IOException;
 
@@ -9,7 +10,7 @@ import java.io.IOException;
  */
 public interface MergerCore {
 
-    PDDocument loadPdfFromPath(String path) throws IOException;
-
     void merge(String[] paths, String newFileName);
+
+    void merge(MergerConfig mergerConfig);
 }
