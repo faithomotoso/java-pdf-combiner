@@ -17,15 +17,20 @@ public class PdfFileConfig {
 
     private Object[] excludePages;
 
+    // Takes precedence over excludePages
+    private Object[] includePages;
+
     @JsonCreator
     public PdfFileConfig(
             @JsonProperty("filePath") String filePath,
-            @JsonProperty("excludePages") Object[] excludePages) throws IOException {
+            @JsonProperty("excludePages") Object[] excludePages,
+            @JsonProperty("includePages") Object[] includePages) throws IOException {
         if (!AppUtility.isFile(filePath, "pdf")) {
             throw new IOException("File [" + filePath + "] should be a pdf");
         }
         this.filePath = filePath;
         this.excludePages = excludePages;
+        this.includePages = includePages;
         if (excludePages != null) {
             System.out.println("Exclude pages: " + Arrays.toString(excludePages));
         }
@@ -35,15 +40,15 @@ public class PdfFileConfig {
         return this.filePath;
     }
 
-    public int[] getPagesToExclude() {
+    public int[] getPagesFromObjectArray(Object[] arr) {
         // Work on supporting ints and string in excludePages
         // String will be converted to ints and strings following the format of page.x - page.y
         // will return an array of generated ranges
 
-        if (this.excludePages != null && this.excludePages.length != 0) {
+        if (arr != null && arr.length != 0) {
             final Set<Integer> pages = new HashSet<>();
 
-            Arrays.stream(this.excludePages).forEach(p -> {
+            Arrays.stream(arr).forEach(p -> {
                 if (Integer.class.isInstance(p)) {
                     pages.add((int) p);
                 } else if (String.class.isInstance(p)) {
@@ -67,8 +72,8 @@ public class PdfFileConfig {
 
                         // Generate range
                         pages.addAll(IntStream.range(Math.min(bound1, bound2), Math.max(bound1, bound2) + 1)
-                                    .boxed()
-                                    .collect(Collectors.toSet()));
+                                .boxed()
+                                .collect(Collectors.toSet()));
                     } else {
                         // Direct number
                         pages.add(Integer.parseInt(numString));
@@ -88,9 +93,10 @@ public class PdfFileConfig {
         Optional<PDDocument> optionalPDDocument = Optional.empty();
         try {
             PDDocument pdDocument = AppUtility.loadPdfFromPath(this.getFilePath());
-            int[] pagesToExclude = getPagesToExclude();
-            if (pagesToExclude != null) {
-                pdDocument = this.removePages(pdDocument, pagesToExclude);
+            if (includePages != null) {
+                pdDocument = this.includeOnlyPages(pdDocument, getPagesFromObjectArray(this.includePages));
+            } else if (excludePages != null) {
+                pdDocument = this.removePages(pdDocument, getPagesFromObjectArray(this.excludePages));
             }
             System.out.println("Returning for this file: " + this.getFilePath());
             optionalPDDocument = Optional.ofNullable(pdDocument);
@@ -125,6 +131,33 @@ public class PdfFileConfig {
         }
 
         // If an error occurs, return the page back
+        return document;
+    }
+
+    private PDDocument includeOnlyPages(PDDocument document, int[] pages) {
+        Arrays.sort(pages);
+
+        Set<Integer> pagesSet = Arrays.stream(pages)
+                .boxed()
+                .map(p -> --p)
+                .collect(Collectors.toUnmodifiableSet());
+
+        try {
+            final PDDocument newDocument = new PDDocument();
+            for (Integer p : pagesSet) {
+                if (p > document.getNumberOfPages()) {
+                    // If for some reason the page entered is larger than the total pages available
+                    continue;
+                }
+
+                newDocument.addPage(document.getPage(p));
+            }
+
+            return newDocument;
+        } catch (Exception e) {
+            System.out.println("Error including only pages: " + e.getLocalizedMessage());
+        }
+
         return document;
     }
 }
