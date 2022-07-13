@@ -31,9 +31,6 @@ public class PdfFileConfig {
         this.filePath = filePath;
         this.excludePages = excludePages;
         this.includePages = includePages;
-        if (excludePages != null) {
-            System.out.println("Exclude pages: " + Arrays.toString(excludePages));
-        }
     }
 
     public String getFilePath() {
@@ -67,6 +64,7 @@ public class PdfFileConfig {
 
                         if (bound1 < 0 || bound2 < 0) {
                             // Pages can't be negative
+                            System.out.println("Provided pages can't be used: " + numString);
                             return;
                         }
 
@@ -76,7 +74,7 @@ public class PdfFileConfig {
                                 .collect(Collectors.toSet()));
                     } else {
                         // Direct number
-                        pages.add(Integer.parseInt(numString));
+                        pages.add(Integer.parseInt(numString.replaceAll(" ", "")));
                     }
                 } else {
                     System.out.println("Invalid page number: " + p);
@@ -112,7 +110,7 @@ public class PdfFileConfig {
         // Page numbers from PDDocument are zero based
         Set<Integer> pagesSet = Arrays.stream(pages).boxed()
                 .map(i -> --i)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toUnmodifiableSet());
 
         // Create a new doc and extract pages needed in a loop
         try {
